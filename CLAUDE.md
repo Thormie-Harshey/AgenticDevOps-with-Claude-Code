@@ -8,7 +8,7 @@ Static HTML/CSS portfolio website deployed to AWS using S3 + CloudFront, provisi
 
 ## Deployment
 
-The site is hosted via Nginx on an Ubuntu VM. Deployment steps:
+The site is hosted via Nginx on an Ubuntu VM on AWS. Deployment steps:
 
 ```bash
 # Copy files to Nginx web root
