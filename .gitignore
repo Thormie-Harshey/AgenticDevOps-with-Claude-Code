@@ -6,8 +6,9 @@ terraform.tfstate.*
 *.tfvars
 *.tfvars.json
 
-# Claude Code
-.claude/
+# Claude Code — protect credentials only, track everything else
+.claude/settings.local.json
+.claude/projects/
 
 # MCP Configuration
 .mcp.json
