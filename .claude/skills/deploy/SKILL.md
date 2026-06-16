@@ -9,7 +9,7 @@ Deploy site files to S3 and invalidate CloudFront cache.
 
 Steps:
 - [ ] Get terraform outputs: `cd terraform && terraform output -json`
-- [ ] Sync site files: `aws s3 sync . s3://<bucket> --exclude "terraform/*" --exclude ".git/*" --exclude ".github/*" --exclude "*.md" --exclude ".claude/*" --exclude ".cursor/*" --exclude ".mcp.json" --delete`
+- [ ] Sync site files: `aws s3 sync . s3://<bucket> --exclude "terraform/*" --exclude ".git/*" --exclude ".github/*" --exclude "*.md" --exclude ".claude/*" --exclude ".cursor/*" --exclude ".mcp.json" --exclude "*.tfstate" --exclude "*.tfstate.backup" --exclude "*.log" --exclude ".gitignore" --delete`
 - [ ] Invalidate cache: `aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"`
 - [ ] Report the CloudFront URL and invalidation status
 
