@@ -6,12 +6,12 @@
 # 2. Once those resources exist, uncomment the backend block below.
 # 3. Run `terraform init -migrate-state` to move local state to S3.
 #
-# terraform {
-#   backend "s3" {
-#     bucket         = "tomiwadmi-terraform-state"
-#     key            = "static-site/terraform.tfstate"
-#     region         = "eu-north-1"
-#     dynamodb_table = "tomiwadmi-terraform-locks"
-#     encrypt        = true
-#   }
-# }
+terraform {
+  backend "s3" {
+    bucket         = "tomiwadmi-terraform-state"
+    key            = "static-site/terraform.tfstate"
+    region         = "eu-north-1"
+    use_lockfile   = true
+    encrypt        = true
+  }
+}
