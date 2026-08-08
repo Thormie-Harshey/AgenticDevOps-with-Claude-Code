@@ -23,9 +23,9 @@ Static HTML/CSS portfolio website deployed to AWS using S3 + CloudFront, provisi
 - All resources tagged with `Project` and `Environment`
 
 ### CI/CD (`.github/workflows/`)
-- GitHub Actions workflow triggers on push to `main`
-- Syncs site files to S3, then invalidates CloudFront cache
-- Uses OIDC for AWS authentication (no long-lived keys)
+- The AWS infrastructure (IAM role, CloudFront distribution) was torn down after successful deployment, so the workflow no longer deploys
+- GitHub Actions workflow now runs `terraform fmt -check`, `terraform init -backend=false`, and `terraform validate` on push to `main` and on pull requests — no AWS credentials involved
+- With the infrastructure and OIDC role in place, it instead assumed the OIDC role, synced site files to S3, then invalidated the CloudFront cache
 
 ## MCP Servers (`.mcp.json`)
 
@@ -70,7 +70,7 @@ cd terraform && terraform apply
 # Local preview
 open index.html
 
-# Manual S3 sync (CI does this automatically)
+# Manual S3 sync (CI no longer does this — infra was torn down; run by hand if the bucket is repopulated)
 aws s3 sync . s3://$BUCKET_NAME --exclude "terraform/*" --exclude ".git/*" --exclude ".github/*" --exclude "*.md" --exclude ".claude/*"
 ```
 
@@ -87,7 +87,7 @@ aws s3 sync . s3://$BUCKET_NAME --exclude "terraform/*" --exclude ".git/*" --exc
 - Terraform files use `terraform/` directory with standard layout (main.tf, variables.tf, outputs.tf)
 - GitHub Actions uses OIDC — no stored AWS access keys
 - All infrastructure changes go through Terraform — never modify AWS resources manually
-- Site content changes deploy automatically via GitHub Actions on push to main
+- Site content no longer deploys automatically — the deploy role and CloudFront distribution were torn down after successful deployment; GitHub Actions now only validates Terraform on push to main
 
 ## DMI Ownership Customization (Required)
 

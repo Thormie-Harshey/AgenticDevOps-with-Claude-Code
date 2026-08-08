@@ -13,6 +13,9 @@ terraform.tfstate.*
 # MCP Configuration
 .mcp.json
 
+# Local-only notes
+REDEPLOYMENT_PLAYBOOK.md
+
 # Debug and Logs
 debug.log
 *.log

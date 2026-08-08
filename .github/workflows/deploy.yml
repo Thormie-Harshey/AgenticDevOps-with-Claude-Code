@@ -1,46 +1,19 @@
-name: Deploy
+name: Terraform Validate
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  id-token: write
-  contents: read
+    branches: [main]
+  pull_request:
 
 jobs:
-  deploy:
-    name: Sync to S3 + Invalidate CloudFront
+  validate:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::852396291743:role/tomiwadmi-github-actions-deploy
-          aws-region: eu-north-1
-
-      - name: Sync site to S3
-        run: |
-          aws s3 sync . s3://tomiwadmi-static-site \
-            --delete \
-            --exclude ".git/*" \
-            --exclude ".github/*" \
-            --exclude ".claude/*" \
-            --exclude "terraform/*" \
-            --exclude ".mcp.json" \
-            --exclude "*.md" \
-            --exclude "*.tfstate" \
-            --exclude "*.tfstate.backup" \
-            --exclude "*.log" \
-            --exclude ".gitignore"
-
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id E2LU9KQMM26NHP \
-            --paths "/*"
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+        working-directory: terraform
+      - run: terraform init -backend=false
+        working-directory: terraform
+      - run: terraform validate
+        working-directory: terraform
