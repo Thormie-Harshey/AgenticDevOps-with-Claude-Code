@@ -118,6 +118,11 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   viewer_certificate {
+    # cloudfront_default_certificate forces TLSv1 as the minimum protocol —
+    # AWS rejects minimum_protocol_version overrides unless a custom domain
+    # with an ACM certificate is attached (ssl_support_method = "sni-only").
+    # No custom domain is configured (see var.domain_name), so this is a
+    # known limitation, not an oversight.
     cloudfront_default_certificate = true
   }
 

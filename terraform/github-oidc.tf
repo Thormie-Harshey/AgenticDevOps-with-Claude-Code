@@ -46,9 +46,9 @@ data "aws_iam_policy_document" "github_actions_trust" {
     }
 
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:Thormie-Harshey/AgenticDevOps-with-Claude-Code:*"]
+      values   = ["repo:Thormie-Harshey/AgenticDevOps-with-Claude-Code:ref:refs/heads/main"]
     }
   }
 }
