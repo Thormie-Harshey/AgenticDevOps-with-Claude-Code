@@ -88,4 +88,5 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
 output "github_actions_role_arn" {
   description = "IAM role ARN to use in the GitHub Actions workflow"
   value       = aws_iam_role.github_actions.arn
+  sensitive   = true
 }

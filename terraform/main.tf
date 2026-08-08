@@ -37,6 +37,14 @@ resource "aws_s3_bucket_public_access_block" "site" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_versioning" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
 # -------------------------------------------------------------------
 # CloudFront Origin Access Control (OAC)
 # -------------------------------------------------------------------
@@ -80,6 +88,42 @@ resource "aws_s3_bucket_policy" "site" {
 }
 
 # -------------------------------------------------------------------
+# CloudFront Response Headers Policy — security headers
+#
+# CSP is deliberately omitted: the site loads Font Awesome from
+# cdnjs.cloudflare.com and course thumbnails from img-c.udemycdn.com,
+# and getting a CSP allowlist wrong would visibly break the live site
+# (icons/images silently disappearing). Add it separately, tested,
+# rather than as part of this pass.
+# -------------------------------------------------------------------
+resource "aws_cloudfront_response_headers_policy" "site" {
+  name = "${var.project_name}-security-headers"
+
+  security_headers_config {
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+  }
+}
+
+# -------------------------------------------------------------------
 # CloudFront Distribution
 # -------------------------------------------------------------------
 resource "aws_cloudfront_distribution" "site" {
@@ -87,6 +131,8 @@ resource "aws_cloudfront_distribution" "site" {
   default_root_object = "index.html"
   price_class         = "PriceClass_200"
   comment             = "${var.project_name} static site"
+  is_ipv6_enabled     = true
+  http_version        = "http2and3"
 
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
@@ -95,10 +141,12 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "S3-${local.bucket_name}"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
+    target_origin_id           = "S3-${local.bucket_name}"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
 
     # AWS Managed CachingOptimized policy
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
@@ -179,6 +227,10 @@ resource "aws_dynamodb_table" "tf_locks" {
   attribute {
     name = "LockID"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled = true
   }
 
   tags = {
