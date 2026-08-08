@@ -107,12 +107,20 @@ body {
   background: #eab308 !important;
 }
 
-/* Hamburger */
+/* Hamburger — checkbox-driven, no JS */
+.menu-toggle {
+  display: none;
+}
+
 .hamburger {
   display: none;
   font-size: 26px;
   color: white;
   cursor: pointer;
+}
+
+.menu-toggle:checked ~ .mobile-menu {
+  display: block;
 }
 
 /* Mobile Menu */
@@ -153,10 +161,6 @@ body {
   }
 
   .hamburger {
-    display: block;
-  }
-
-  .mobile-menu.show {
     display: block;
   }
 }
@@ -529,10 +533,6 @@ body {
 
 section {
   scroll-margin-top: 90px; /* fixes scroll offset due to fixed navbar */
-}
-
-.mobile-menu.show {
-  display: block;
 }
 
 /* COURSES */
