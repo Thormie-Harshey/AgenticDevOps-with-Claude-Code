@@ -6,23 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Static HTML/CSS portfolio website deployed to AWS using S3 + CloudFront, provisioned with Terraform, and automated via GitHub Actions.
 
-## Deployment
-
-The site is hosted via Nginx on an Ubuntu VM on AWS. Deployment steps:
-
-```bash
-# Copy files to Nginx web root
-sudo cp -r . /var/www/html/
-
-# Restart Nginx
-sudo systemctl restart nginx
-
-# Verify the site is accessible
-curl http://<public-ip>
-```
-
-Access the deployed site at `http://<public-ip>`.
-
 ## Architecture
 
 ### Application (Static Site)
@@ -36,7 +19,7 @@ Access the deployed site at `http://<public-ip>`.
 - AWS S3 bucket for static site hosting (private, OAC-based access)
 - CloudFront distribution as CDN with S3 origin
 - GitHub OIDC provider + IAM role for keyless CI/CD auth
-- Terraform state stored in S3 backend with DynamoDB locking
+- S3 bucket + DynamoDB table for a Terraform S3 backend are defined, but the `backend "s3"` block in `backend.tf` is still commented out — state is currently local, not remote. Bootstrap by applying locally once, then uncomment the block and run `terraform init -migrate-state`.
 - All resources tagged with `Project` and `Environment`
 
 ### CI/CD (`.github/workflows/`)
@@ -62,19 +45,16 @@ This project has 4 specialized subagents. Use them by name when delegating tasks
 
 ## Skills (`.claude/skills/`)
 
-All infrastructure and deployment tasks are handled via skills. Do not write Terraform or CI/CD code manually — use the appropriate skill. Action skills have `disable-model-invocation: true` (manual only). The `project-scope` skill has `user-invocable: false` (auto-loaded by Claude as background knowledge).
+All infrastructure and deployment tasks are handled via skills. Do not write Terraform or CI/CD code manually — use the appropriate skill. Action skills have `disable-model-invocation: true` (manual only).
 
 ```
 /scaffold-terraform [region] [name]  → Generate all Terraform files (uses tf-writer agent)
-/scaffold-cicd [aws-account-id]      → Generate GitHub Actions + OIDC IAM role
 /tf-plan                             → Run terraform plan + risk analysis
 /tf-apply                            → Run terraform apply + verify
 /deploy                              → Sync S3 + invalidate CloudFront
 /infra-status                        → Health dashboard of all resources
 /infra-audit                         → Parallel security + cost + drift audit (forked context)
 /setup-gh-actions [create|validate]  → Create or validate CI workflow
-/tf-destroy                          → Safe destroy with confirmation
-project-scope                        → Background knowledge: AWS service constraints (auto-loaded)
 /commit                              → Auto-generate commit message (built-in)
 /compact                             → Compress long conversation context (built-in)
 ```
@@ -98,7 +78,7 @@ aws s3 sync . s3://$BUCKET_NAME --exclude "terraform/*" --exclude ".git/*" --exc
 1. **UserPromptSubmit hook** — catches destructive intent ("delete all", "nuke", "wipe") before Claude starts
 2. **PreToolUse hook** — blocks dangerous commands (terraform destroy, aws s3 rm) at execution time
 3. **Permissions** — auto-allows safe reads, blocks IAM and rm -rf
-4. **PostToolUse hook** — logs all terraform apply executions to `.claude/deploy.log`
+4. **PostToolUse hook** — logs all terraform plan executions to `.claude/deploy.log`
 
 ## Conventions
 - No JavaScript allowed in the project

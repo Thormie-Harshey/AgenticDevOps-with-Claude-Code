@@ -51,9 +51,5 @@
         ]
       }
     ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "bash .claude/scripts/status-line.sh"
   }
 }
