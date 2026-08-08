@@ -8,10 +8,10 @@
 #
 terraform {
   backend "s3" {
-    bucket         = "tomiwadmi-terraform-state"
-    key            = "static-site/terraform.tfstate"
-    region         = "eu-north-1"
-    use_lockfile   = true
-    encrypt        = true
+    bucket       = "tomiwadmi-terraform-state"
+    key          = "static-site/terraform.tfstate"
+    region       = "eu-north-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
