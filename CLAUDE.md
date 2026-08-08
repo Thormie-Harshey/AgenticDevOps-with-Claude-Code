@@ -18,8 +18,8 @@ Static HTML/CSS portfolio website deployed to AWS using S3 + CloudFront, provisi
 ### Infrastructure (`terraform/`)
 - AWS S3 bucket for static site hosting (private, OAC-based access)
 - CloudFront distribution as CDN with S3 origin
-- GitHub OIDC provider + IAM role for keyless CI/CD auth
-- S3 bucket + DynamoDB table for a Terraform S3 backend are defined, but the `backend "s3"` block in `backend.tf` is still commented out — state is currently local, not remote. Bootstrap by applying locally once, then uncomment the block and run `terraform init -migrate-state`.
+- IAM role `tomiwadmi-github-actions-deploy` for keyless CI/CD auth, reading this AWS account's existing GitHub OIDC provider via a data source (the account already has one from another project — only one is allowed per account, and per-project IAM roles keep the two projects' deploy permissions independent)
+- Terraform state lives in the `tomiwadmi-terraform-state` S3 bucket with DynamoDB locking (`backend.tf`)
 - All resources tagged with `Project` and `Environment`
 
 ### CI/CD (`.github/workflows/`)
