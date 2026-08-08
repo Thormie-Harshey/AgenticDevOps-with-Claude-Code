@@ -20,18 +20,18 @@ What they deploy is a static HTML/CSS portfolio site for a cloud/DevOps educator
 - `.mcp.json` wires up a Dockerised `terraform-mcp-server` and `awslabs.aws-api-mcp-server`; credentials live in the gitignored `.claude/settings.local.json`, not in the MCP config itself.
 
 **Infrastructure** (`terraform/`) — one AWS provider, one region (`eu-north-1`), one project (`tomiwadmi`):
-- `aws_s3_bucket.site` — private, all four public-access-block flags on, SSE-AES256, served only through CloudFront.
-- `aws_cloudfront_distribution.site` — S3 origin via Origin Access Control, `redirect-to-https`, AWS-managed `CachingOptimized` policy. Uses the default `*.cloudfront.net` certificate, which caps the minimum TLS version at TLSv1 (see Issues).
-- `aws_s3_bucket.tf_state` + `aws_dynamodb_table.tf_locks` — resources for a Terraform S3 backend, defined in the same configuration they would eventually store state for. State is currently local; the `backend "s3"` block in `backend.tf` is commented out pending the bootstrap-then-migrate step (see Issues).
-- `aws_iam_openid_connect_provider.github` + `aws_iam_role.github_actions` (`github-oidc.tf`) — federated OIDC role scoped to `repo:Thormie-Harshey/AgenticDevOps-with-Claude-Code:ref:refs/heads/main`, with an inline policy limited to `s3:PutObject/GetObject/DeleteObject/ListBucket` on the one bucket and `cloudfront:CreateInvalidation` on the one distribution.
+- `aws_s3_bucket.site` — private, all four public-access-block flags on, SSE-AES256, versioning enabled, served only through CloudFront.
+- `aws_cloudfront_distribution.site` — S3 origin via Origin Access Control, `redirect-to-https`, AWS-managed `CachingOptimized` policy, IPv6 enabled, HTTP/2+HTTP/3, gzip/brotli compression, and a response headers policy (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy). Uses the default `*.cloudfront.net` certificate, which caps the minimum TLS version at TLSv1 — see What I Would Do Differently.
+- `aws_s3_bucket.tf_state` + `aws_dynamodb_table.tf_locks` (SSE-enabled) back a Terraform S3 backend; state lives in `tomiwadmi-terraform-state` with DynamoDB locking.
+- `tomiwadmi-github-actions-deploy` (`github-oidc.tf`) — a project-scoped IAM role, trusted only for `repo:Thormie-Harshey/AgenticDevOps-with-Claude-Code:ref:refs/heads/main`, with an inline policy limited to `s3:PutObject/GetObject/DeleteObject/ListBucket` on the one bucket and `cloudfront:CreateInvalidation` on the one distribution. It reads this AWS account's GitHub OIDC provider via a data source rather than creating one — the account already had one from an unrelated project sharing the same account, and AWS only allows one per account. That other project also happened to have a role literally named `github-actions-deploy`; the role here is deliberately named after this project to avoid colliding with it. Outputs that leak an ARN or resource ID are marked `sensitive = true`.
 
-**CI/CD** (`.github/workflows/deploy.yml`) — on push to `main`: assumes the OIDC role, `aws s3 sync` the repo to the bucket (excluding Terraform, git, Claude, and markdown files), then invalidates the CloudFront cache. The bucket name, role ARN, account ID, and distribution ID are hardcoded into the workflow rather than read from Terraform outputs.
+**CI/CD** (`.github/workflows/deploy.yml`) — on push to `main`: assumes the OIDC role, `aws s3 sync` the repo to the bucket (excluding Terraform, git, Claude, and markdown files), then invalidates the CloudFront cache. The bucket name, role ARN, account ID, and distribution ID are hardcoded into the workflow rather than read from Terraform outputs — a deliberate trade-off for a single-project, single-environment setup; see What I Would Do Differently.
 
-**Site** — `index.html`, `privacy.html`, `terms.html`, `style.css`, `images/`. Plain HTML5 and CSS3, no JavaScript, no build step.
+**Site** — `index.html`, `privacy.html`, `terms.html`, `style.css`, `images/`. Plain HTML5 and CSS3, no JavaScript, no build step. The mobile navigation menu uses a checkbox-driven CSS toggle rather than JS.
 
 ## How to run it
 
-**Preview the site**: open `index.html` in a browser.
+**Preview the site**: open `index.html` in a browser, or visit the live link above.
 
 **Provision the infrastructure**:
 ```bash
@@ -40,7 +40,7 @@ terraform init
 terraform plan
 terraform apply
 ```
-This runs against local state on first apply. To move to remote state, apply once locally to create the state bucket and lock table, uncomment the `backend "s3"` block in `backend.tf`, then run `terraform init -migrate-state`.
+State is remote (S3 + DynamoDB locking) — `terraform init` connects to it automatically, no extra setup needed.
 
 **Deploy site content**: push to `main` and GitHub Actions handles it, or run the manual sync command in `CLAUDE.md` / the `deploy` skill.
 
@@ -48,11 +48,8 @@ This runs against local state on first apply. To move to remote state, apply onc
 
 ## What I would do differently
 
-- **Read deploy targets from Terraform outputs, not hardcoded strings.** The bucket name, distribution ID, role ARN, and account ID are duplicated by hand across `deploy.yml`, the `deploy` skill, and `CLAUDE.md`. One of these will drift the next time the project is renamed or redeployed under a new account — the cost-optimizer's own memory index already drifted this way once (a link pointed at a filename that didn't match what was on disk).
-- **Bootstrap the S3 backend properly, or don't define it yet.** Defining the state bucket and lock table in the same configuration they would store state for is a well-known pattern, but it leaves the config in a permanently half-finished state until someone actually runs the migration. Right now nobody has.
-- **Give the mobile menu an actual toggle.** The hamburger icon has no JavaScript (by design — the project convention is no JS) and no CSS-only fallback either, so on a narrow viewport the menu items are simply unreachable. A checkbox-driven CSS toggle would fix this without breaking the no-JS rule.
 - **Attach a custom domain so TLS can be upgraded.** The CloudFront distribution is stuck on TLSv1 minimum because it uses the default `*.cloudfront.net` certificate; AWS only allows tightening `minimum_protocol_version` once an ACM certificate on a custom domain is attached.
-
-## Issues
-
-Everything above that is a genuine open task rather than a documentation mismatch has been filed as a GitHub issue rather than left as a to-do list in this file: state backend migration, the TLS ceiling, the mobile menu toggle, hardcoded deploy targets, and the remaining medium/low findings from the last security audit (response headers policy, WAF, DynamoDB encryption at rest, S3 versioning, access logging, unmarked sensitive outputs). See the repository's Issues tab for current status on each.
+- **Add a tested CSP.** Every other response security header is set except Content-Security-Policy — the site loads Font Awesome from `cdnjs.cloudflare.com` and course thumbnails from `img-c.udemycdn.com`, and a wrong allowlist would silently break the live site (icons/images just vanish) rather than fail loudly. Worth doing, but deliberately, with a real check against the rendered page first.
+- **Decide on WAF explicitly, don't default it in.** It's a real recurring AWS cost, not a one-line config change, so it stayed out of the general hardening pass pending an actual decision on whether it's worth it for a coursework site.
+- **Read deploy targets from Terraform outputs, not hardcoded strings.** Still duplicated by hand across `deploy.yml`, the `deploy` skill, and `CLAUDE.md`. Accepted for now at this project's scale (one bucket, one distribution, one role); would need fixing before this pattern gets reused across multiple environments.
+- **Namespace shared-account resources by project from day one.** This account hosts more than one project's infrastructure, and this project originally reused a generic IAM role name (`github-actions-deploy`) that collided with one already owned by an unrelated site. That's what actually broke the pipeline — worth prefixing every account-scoped resource name with the project name from the start, not after hitting the collision.
