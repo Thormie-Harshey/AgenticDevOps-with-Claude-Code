@@ -1,29 +1,12 @@
 # -------------------------------------------------------------------
 # GitHub Actions OIDC Provider
 #
-# Note: Only one OIDC provider per URL is allowed per AWS account.
-# If this already exists from another project, replace the resource
-# block below with a data source instead:
-#
-#   data "aws_iam_openid_connect_provider" "github" {
-#     url = "https://token.actions.githubusercontent.com"
-#   }
-#
-# Then update the principals identifiers reference to:
-#   data.aws_iam_openid_connect_provider.github.arn
+# Only one OIDC provider per URL is allowed per AWS account. This
+# account already has one (created for another project), so this
+# reads it rather than trying to create a second one.
 # -------------------------------------------------------------------
-resource "aws_iam_openid_connect_provider" "github" {
-  url            = "https://token.actions.githubusercontent.com"
-  client_id_list = ["sts.amazonaws.com"]
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd",
-  ]
-
-  tags = {
-    Project     = var.project_name
-    Environment = var.environment
-  }
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
 }
 
 # -------------------------------------------------------------------
@@ -36,7 +19,7 @@ data "aws_iam_policy_document" "github_actions_trust" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {
@@ -54,7 +37,10 @@ data "aws_iam_policy_document" "github_actions_trust" {
 }
 
 resource "aws_iam_role" "github_actions" {
-  name               = "github-actions-deploy"
+  # Project-scoped name — the AWS account already has an unrelated
+  # "github-actions-deploy" role for another project; this must not
+  # collide with it.
+  name               = "${var.project_name}-github-actions-deploy"
   assume_role_policy = data.aws_iam_policy_document.github_actions_trust.json
 
   tags = {
@@ -91,7 +77,7 @@ data "aws_iam_policy_document" "github_actions_deploy" {
 }
 
 resource "aws_iam_role_policy" "github_actions_deploy" {
-  name   = "github-actions-deploy-policy"
+  name   = "${var.project_name}-github-actions-deploy-policy"
   role   = aws_iam_role.github_actions.id
   policy = data.aws_iam_policy_document.github_actions_deploy.json
 }
